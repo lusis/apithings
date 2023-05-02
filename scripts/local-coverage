@@ -1,0 +1,7 @@
+#!/bin/bash
+set -eou pipefail
+set -x
+ROOT=$(git rev-parse --show-toplevel)
+cd "${ROOT}"
+
+CGO_ENABLED=0 go test -covermode=count -coverpkg=./... -coverprofile cover.out -v ./... && CGO_ENABLED=0 go tool cover -html cover.out -o cover.html && open cover.html
