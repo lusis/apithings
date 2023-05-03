@@ -21,5 +21,3 @@ jobs:
         with:
           version: v1.50.1
           args: --timeout=3m
-          only-new-issues: true
-          skip-cache: true
