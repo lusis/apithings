@@ -54,6 +54,7 @@ func configFromEnv() (*config, error) { // nolint: unparam
 		enableNgrok:       false,
 		ngrokEndpointName: "",
 		enableDash:        false,
+		apikey:            "",
 	}
 	if os.Getenv(debugEnvKey) != "" {
 		cfg.debug = true
@@ -69,6 +70,9 @@ func configFromEnv() (*config, error) { // nolint: unparam
 	}
 	if os.Getenv(enableDashEnvKey) != "" {
 		cfg.enableDash = true
+	}
+	if os.Getenv(apiKeyEnvKey) != "" {
+		cfg.apikey = os.Getenv(apiKeyEnvKey)
 	}
 	// We support the native ngrok env var here
 	// if you set it, we map it
