@@ -1,6 +1,7 @@
 run:
   tests: false
   modules-download-mode: vendor
+  skip-dirs-use-default: true
 
 exclude-rules:
   - path: proto
