@@ -24,6 +24,9 @@ type StatusThingStorer interface {
 // UnimplementedStorer is a [StatusThingStorer] implementation for testing and backwards compatibility
 type UnimplementedStorer struct{}
 
+// ensure we always satisfy
+var _ StatusThingStorer = (*UnimplementedStorer)(nil)
+
 // Get gets a statusthing
 func (us *UnimplementedStorer) Get(ctx context.Context, id string) (*types.StatusThing, error) {
 	panic("not implemented")

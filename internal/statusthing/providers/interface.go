@@ -30,6 +30,9 @@ type Params struct {
 // UnimplementedProvider is an implementation of Provider for testing and backwards compatibility
 type UnimplementedProvider struct{}
 
+// ensure we always satisfy
+var _ Provider = (*UnimplementedProvider)(nil)
+
 // All gets all [types.StatusThing]
 func (up *UnimplementedProvider) All(ctx context.Context) ([]*types.StatusThing, error) {
 	panic("not implemented")
