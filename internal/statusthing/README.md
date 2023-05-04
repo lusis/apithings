@@ -29,7 +29,7 @@ Config is done through environment variables with a prefix of `STATUSTHING_`:
 - `STATUSTHING_BASEPATH` the basepath is path for all api requests. the default is `/api/statusthing/` so all requests go to `/api/statusthing/` - note the trailing slash here
 - `STATUSTHING_DBFILE` the sqlite file to use for data
 - `STATUSTHING_APIKEY` if provided, password protects the api with the provided value and said value must be provided as an http header `X-STATUSTHING-KEY` for any requests
-- `STATUSTHING_ENABLE_DASH` if you want the VERY VERY basic and rudimentary "dashboard" (and I use that word so very very loosely), this will expose it at `basepath/ui` so `/api/statusthing/ui` assuming defaults
+- `STATUSTHING_ENABLE_DASH` if you want the VERY VERY basic and rudimentary **PUBLIC** read-only "dashboard" (and I use that word so very very loosely), this will expose it at `basepath/ui` so `/api/statusthing/ui` assuming defaults
 
 Additionaly, per the top-level README, setting `NGROK_AUTHTOKEN` will stand up a temporary ngrok endpoint for the app and specifiying `NGROK_ENDPOINT` will use that endpoint to expose it.
 When exposed via ngrok the basepath and apikey settings are all honored as well.
@@ -41,6 +41,8 @@ When exposed via ngrok the basepath and apikey settings are all honored as well.
 If enabled, the following is available at `basepath/ui`
 
 ![basic dashboard with four squares colored to reflect the status - two green, one yellow and one red](dashboard-screenshot.png)
+
+**This dashboard does not allow edits and requires no authentication. API calls are still protected by an api key if enabled**
 
 ## APIs
 All requests must set the `Content-Type` header to `application/json`
