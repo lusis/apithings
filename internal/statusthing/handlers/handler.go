@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path"
 	"regexp"
+	"text/template"
 
 	"github.com/lusis/apithings/internal/statusthing/providers"
 	"github.com/lusis/apithings/internal/statusthing/types"
@@ -22,6 +24,7 @@ type StatusThingHandler struct {
 	allPath       string
 	logger        *slog.Logger
 	apikey        string
+	enableDash    bool
 }
 
 type httpRepresentation struct {
@@ -36,7 +39,7 @@ const applicationJSON = "application/json"
 const contentTypeHeader = "content-type"
 
 // NewStatusThingHandler returns a new statusthing handler
-func NewStatusThingHandler(provider providers.Provider, basePath string, logger *slog.Logger, apikey string) (*StatusThingHandler, error) {
+func NewStatusThingHandler(provider providers.Provider, basePath string, logger *slog.Logger, apikey string, enableDash bool) (*StatusThingHandler, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -45,20 +48,28 @@ func NewStatusThingHandler(provider providers.Provider, basePath string, logger 
 	}
 	pathstring := fmt.Sprintf("^%s%s$", basePath, thingIDRegexPattern)
 	pr := regexp.MustCompile(pathstring)
-	return &StatusThingHandler{provider: provider, itemPathRegex: pr, allPath: basePath, logger: logger, apikey: apikey}, nil
+	return &StatusThingHandler{provider: provider, itemPathRegex: pr, allPath: basePath, logger: logger, apikey: apikey, enableDash: enableDash}, nil
 }
 
 func (h *StatusThingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h.enableDash {
+		if r.URL.Path == path.Join(h.allPath, "ui") {
+			h.ui(r.Context(), w)
+			return
+		}
+	}
 	if h.apikey != "" {
 		if r.Header.Get("X-STATUSTHING-KEY") != h.apikey {
 			http.Error(w, "apikey required", http.StatusForbidden)
 			return
 		}
 	}
+
 	if r.Header.Get(contentTypeHeader) != applicationJSON {
 		http.Error(w, "invalid content type", http.StatusBadRequest)
 		return
 	}
+
 	w.Header().Set(contentTypeHeader, applicationJSON)
 	// short circuit if all request
 	if r.URL.Path == h.allPath && r.Method == http.MethodGet {
@@ -97,7 +108,31 @@ func (h *StatusThingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *StatusThingHandler) getall(ctx context.Context, w http.ResponseWriter) { // nolint: unparam
+func (h *StatusThingHandler) ui(ctx context.Context, w http.ResponseWriter) {
+	all, err := h.provider.All(ctx)
+	if err != nil {
+		h.logger.Error("error getting all results", "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	t, err := template.New("dash").Parse(tmpl)
+	if err != nil {
+		h.logger.Error("error getting all results", "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	cards := []string{}
+	for _, thing := range all {
+		cards = append(cards, makeCard(thing))
+	}
+	if err := t.Execute(w, cards); err != nil {
+		h.logger.Error("error getting all results", "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *StatusThingHandler) getall(ctx context.Context, w http.ResponseWriter) {
 	all, err := h.provider.All(ctx)
 	if err != nil {
 		h.logger.Error("error getting all results", "err", err)

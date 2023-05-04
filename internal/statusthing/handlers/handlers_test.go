@@ -17,13 +17,13 @@ import (
 func TestConstructor(t *testing.T) {
 	t.Parallel()
 	t.Run("test-good", func(t *testing.T) {
-		sh, err := NewStatusThingHandler(&testProvider{}, "/", nil, "")
+		sh, err := NewStatusThingHandler(&testProvider{}, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, sh, "should not be nil")
 	})
 
 	t.Run("test-bad", func(t *testing.T) {
-		sh, err := NewStatusThingHandler(&testProvider{}, "", nil, "")
+		sh, err := NewStatusThingHandler(&testProvider{}, "", nil, "", false)
 		require.Error(t, err, "should error")
 		require.Nil(t, sh, "should be nil")
 	})
@@ -34,7 +34,7 @@ func TestInvalidContentType(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	p := &testProvider{}
-	h, err := NewStatusThingHandler(p, "/", nil, "")
+	h, err := NewStatusThingHandler(p, "/", nil, "", false)
 	require.NoError(t, err, "should not error")
 	require.NotNil(t, h, "should not be nil")
 
@@ -57,7 +57,7 @@ func TestGetAll(t *testing.T) {
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		p := &testProvider{}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -77,7 +77,7 @@ func TestGetAll(t *testing.T) {
 				return []*types.StatusThing{}, nil
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -105,7 +105,7 @@ func TestGetAll(t *testing.T) {
 				}, nil
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -129,7 +129,7 @@ func TestGet(t *testing.T) {
 		p := &testProvider{
 			getFunc: func(s string) (*types.StatusThing, error) { return nil, fmt.Errorf("snarf") },
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -147,7 +147,7 @@ func TestGet(t *testing.T) {
 		p := &testProvider{
 			getFunc: func(s string) (*types.StatusThing, error) { return nil, types.ErrNotFound },
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -174,7 +174,7 @@ func TestGet(t *testing.T) {
 				}, nil
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -199,7 +199,7 @@ func TestDelete(t *testing.T) {
 			// doesn't matter what we return here
 			getFunc: func(s string) (*types.StatusThing, error) { return nil, fmt.Errorf("snarf") },
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -217,7 +217,7 @@ func TestDelete(t *testing.T) {
 		p := &testProvider{
 			getFunc: func(s string) (*types.StatusThing, error) { return nil, types.ErrNotFound },
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -245,7 +245,7 @@ func TestDelete(t *testing.T) {
 			},
 			removeFunc: func(s string) error { return nil },
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -273,7 +273,7 @@ func TestPut(t *testing.T) {
 				return nil, fmt.Errorf("should not be called")
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -296,7 +296,7 @@ func TestPut(t *testing.T) {
 				return nil, types.ErrRequiredValueMissing
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -319,7 +319,7 @@ func TestPut(t *testing.T) {
 				return nil, types.ErrAlreadyExists
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -342,7 +342,7 @@ func TestPut(t *testing.T) {
 				return nil, fmt.Errorf("snarf")
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -365,7 +365,7 @@ func TestPut(t *testing.T) {
 				return &types.StatusThing{ID: t.Name()}, nil
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -393,7 +393,7 @@ func TestPost(t *testing.T) {
 				return fmt.Errorf("snarf")
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -415,7 +415,7 @@ func TestPost(t *testing.T) {
 				return fmt.Errorf("snarf")
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -437,7 +437,7 @@ func TestPost(t *testing.T) {
 				return nil
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "")
+		h, err := NewStatusThingHandler(p, "/", nil, "", false)
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
