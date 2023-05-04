@@ -31,6 +31,7 @@ var (
 	apiKeyEnvKey     = fmt.Sprintf("%s_APIKEY", envPrefix)
 	dbFileNameEnvKey = fmt.Sprintf("%s_DBFILE", envPrefix)
 	debugEnvKey      = fmt.Sprintf("%s_DEBUG", envPrefix)
+	enableDashEnvKey = fmt.Sprintf("%s_ENABLE_DASH", envPrefix)
 )
 
 type config struct {
@@ -41,6 +42,7 @@ type config struct {
 	debug             bool
 	enableNgrok       bool
 	ngrokEndpointName string
+	enableDash        bool
 }
 
 func configFromEnv() (*config, error) { // nolint: unparam
@@ -51,6 +53,7 @@ func configFromEnv() (*config, error) { // nolint: unparam
 		debug:             false,
 		enableNgrok:       false,
 		ngrokEndpointName: "",
+		enableDash:        false,
 	}
 	if os.Getenv(debugEnvKey) != "" {
 		cfg.debug = true
@@ -63,6 +66,9 @@ func configFromEnv() (*config, error) { // nolint: unparam
 	}
 	if os.Getenv(dbFileNameEnvKey) != "" {
 		cfg.dbfile = os.Getenv(dbFileNameEnvKey)
+	}
+	if os.Getenv(enableDashEnvKey) != "" {
+		cfg.enableDash = true
 	}
 	// We support the native ngrok env var here
 	// if you set it, we map it
@@ -109,7 +115,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	handler, err := handlers.NewStatusThingHandler(provider, cfg.basepath, logger, cfg.apikey)
+	handler, err := handlers.NewStatusThingHandler(provider, cfg.basepath, logger, cfg.apikey, cfg.enableDash)
 	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
