@@ -24,6 +24,7 @@ type StatusThingHandler struct {
 	allPath       string
 	logger        *slog.Logger
 	apikey        string
+	enableDash    bool
 }
 
 type httpRepresentation struct {
@@ -38,7 +39,7 @@ const applicationJSON = "application/json"
 const contentTypeHeader = "content-type"
 
 // NewStatusThingHandler returns a new statusthing handler
-func NewStatusThingHandler(provider providers.Provider, basePath string, logger *slog.Logger, apikey string) (*StatusThingHandler, error) {
+func NewStatusThingHandler(provider providers.Provider, basePath string, logger *slog.Logger, apikey string, enableDash bool) (*StatusThingHandler, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -47,20 +48,23 @@ func NewStatusThingHandler(provider providers.Provider, basePath string, logger 
 	}
 	pathstring := fmt.Sprintf("^%s%s$", basePath, thingIDRegexPattern)
 	pr := regexp.MustCompile(pathstring)
-	return &StatusThingHandler{provider: provider, itemPathRegex: pr, allPath: basePath, logger: logger, apikey: apikey}, nil
+	return &StatusThingHandler{provider: provider, itemPathRegex: pr, allPath: basePath, logger: logger, apikey: apikey, enableDash: enableDash}, nil
 }
 
 func (h *StatusThingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h.enableDash {
+		if r.URL.Path == path.Join(h.allPath, "ui") {
+			h.ui(r.Context(), w)
+			return
+		}
+	}
 	if h.apikey != "" {
 		if r.Header.Get("X-STATUSTHING-KEY") != h.apikey {
 			http.Error(w, "apikey required", http.StatusForbidden)
 			return
 		}
 	}
-	if r.URL.Path == path.Join(h.allPath, "ui") {
-		h.ui(r.Context(), w)
-		return
-	}
+
 	if r.Header.Get(contentTypeHeader) != applicationJSON {
 		http.Error(w, "invalid content type", http.StatusBadRequest)
 		return
