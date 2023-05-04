@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path"
 	"regexp"
+	"text/template"
 
 	"github.com/lusis/apithings/internal/statusthing/providers"
 	"github.com/lusis/apithings/internal/statusthing/types"
@@ -55,10 +57,15 @@ func (h *StatusThingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if r.URL.Path == path.Join(h.allPath, "ui") {
+		h.ui(r.Context(), w)
+		return
+	}
 	if r.Header.Get(contentTypeHeader) != applicationJSON {
 		http.Error(w, "invalid content type", http.StatusBadRequest)
 		return
 	}
+
 	w.Header().Set(contentTypeHeader, applicationJSON)
 	// short circuit if all request
 	if r.URL.Path == h.allPath && r.Method == http.MethodGet {
@@ -97,7 +104,31 @@ func (h *StatusThingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *StatusThingHandler) getall(ctx context.Context, w http.ResponseWriter) { // nolint: unparam
+func (h *StatusThingHandler) ui(ctx context.Context, w http.ResponseWriter) {
+	all, err := h.provider.All(ctx)
+	if err != nil {
+		h.logger.Error("error getting all results", "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	t, err := template.New("dash").Parse(tmpl)
+	if err != nil {
+		h.logger.Error("error getting all results", "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	cards := []string{}
+	for _, thing := range all {
+		cards = append(cards, makeCard(thing))
+	}
+	if err := t.Execute(w, cards); err != nil {
+		h.logger.Error("error getting all results", "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *StatusThingHandler) getall(ctx context.Context, w http.ResponseWriter) {
 	all, err := h.provider.All(ctx)
 	if err != nil {
 		h.logger.Error("error getting all results", "err", err)
