@@ -12,6 +12,23 @@ Right now the only component I've finished is a basic status site "thing". As ot
 
 The docs for `statusthing` are [here](https://github.com/lusis/apithings/blob/main/README.md)
 
+#### StatusThing Quick Start
+
+- Build and run the container
+```
+docker build --rm -f Dockerfile.statusthing -t statusthing .
+docker run -p 9000:9000 --rm -i -t statusthing
+```
+
+- Add a service
+```
+curl -XPUT -H "Content-Type: application/json" -d '{"status":"STATUS_YELLOW", "name":"tryhard","description":"ehhhhhhh"}' http://localhost:9000/statusthings/api/
+curl -XPUT -H "Content-Type: application/json" -d '{"status":"STATUS_GREEN", "name":"loool","description":"✅"}' http://localhost:9000/statusthings/api/
+curl -XPUT -H "Content-Type: application/json" -d '{"status":"STATUS_RED", "name":"uggg","description":"💩"}' http://localhost:9000/statusthings/api/
+```
+
+- Open your browser to http://localhost:9000/statusthings
+
 ## Common behaviour
 There is some configuration/behavior that will be common across all the 'things'
 

@@ -18,8 +18,68 @@ A statusthing item looks like so:
 ## Running
 _note that the debug env var isn't required but the app is mostly silent otherwise except in cases of errors_
 
-- `go build -o statusthing ./cmd/statusthing/main.go && STATUSTHING_DEBUG=1 ./statusthing`
-- `STATUSTHING_DEBUG=1 go run ./cmd/statusthing/main.go`
+### Docker
+- `docker build --rm -f Dockerfile.statusthing -t statusthing:local . && docker run -p 9000:9000 --rm -t statusthing:local`
+
+- optionally add:
+```
+-v `pwd`/data:/data
+```
+
+to the `docker run` command keep the data around.
+
+### Local
+```go build -o statusthing ./cmd/statusthing/main.go && STATUSTHING_DEBUG=1 ./statusthing
+STATUSTHING_DEBUG=1 go run ./cmd/statusthing/main.go
+```
+
+### [fly.io](https://fly.io)
+
+I've been a fan of fly.io for a while through their blog (ask me about prototokens sometime).
+I've wanted to try it so I gave it shot but there are some gotchas:
+
+- If you want to persistence, until I finish a non-sqlite store implementation you'll have to use a volume and also restrict your app to one machine
+- because the builds are remote and the whole repo basically has to be copied up (if you deploy with the Dockerfile) it can take a minute for that first part
+
+This is a sample fly.toml (you'll want to replace with your region):
+
+```toml
+app = "statusthing"
+primary_region = "<your region>"
+max_per_region = 1
+
+[build]
+  dockerfile = "Dockerfile.statusthing"
+
+[deploy]
+  strategy = "immediate"
+
+[env]
+  STATUSTHING_ENABLE_DEBUG=1
+  # note that this serves off the root not /statusthings
+  STATUSTHING_BASEPATH="/"
+  STATUSTHING_DBFILE="/data/statusthing.db"
+
+[http_service]
+  # 9000 is the default
+  internal_port = 9000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+
+[mounts]
+source="statusthing_data"
+destination="/data"
+```
+
+You'll want to create a volume and secret (for the api) and the deploy:
+
+```
+flyctl volume create statusthing_data -s 1 -r <your region>
+flyctl secrets set STATUSTHING_APIKEY="myreallylongnotguessablepasswordreally"
+flyctl deploy
+```
+
 
 ## Configuration
 Config is done through environment variables with a prefix of `STATUSTHING_`:
@@ -39,7 +99,7 @@ When exposed via ngrok the basepath and apikey settings are all honored as well.
 
 The dashboard is served off the root of the basepath. It is read-only and does not require authentication. Api calls still require an apikey if configured as such
 
-![basic dashboard with four squares colored to reflect the status - two green, one yellow and one red](dashboard-screenshot.png)
+![basic dashboard with three squares colored to reflect the status - one green, one yellow and one red](dashboard-screenshot.png)
 
 ## APIs
 All `PUT`/`POST` requests must set the `Content-Type` header to `application/json`

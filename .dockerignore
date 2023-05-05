@@ -1,0 +1,68 @@
+# flyctl launch added from .gitignore
+# Binaries for programs and plugins
+**/*.exe
+**/*.exe~
+**/*.dll
+**/*.so
+**/*.dylib
+
+**/__debug_bin
+
+**/*.test
+**/*.out
+**/.DS_Store
+**/.vscode
+**/.idea
+**/dist
+**/bin
+**/cover.out
+**/cover.html
+**/.env
+**/config.yaml
+**/.cache
+**/go-sqlite3-test-*
+**/*.db
+data/
+fly.toml
+
+# flyctl launch added from vendor/github.com/segmentio/ksuid/.gitignore
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+vendor/github.com/segmentio/ksuid/**/*.o
+vendor/github.com/segmentio/ksuid/**/*.a
+vendor/github.com/segmentio/ksuid/**/*.so
+
+# Folders
+vendor/github.com/segmentio/ksuid/**/_obj
+vendor/github.com/segmentio/ksuid/**/_test
+
+# Architecture specific extensions/prefixes
+vendor/github.com/segmentio/ksuid/**/*.[568vq]
+vendor/github.com/segmentio/ksuid/**/[568vq].out
+
+vendor/github.com/segmentio/ksuid/**/*.cgo1.go
+vendor/github.com/segmentio/ksuid/**/*.cgo2.c
+vendor/github.com/segmentio/ksuid/**/_cgo_defun.c
+vendor/github.com/segmentio/ksuid/**/_cgo_gotypes.go
+vendor/github.com/segmentio/ksuid/**/_cgo_export.*
+
+vendor/github.com/segmentio/ksuid/**/_testmain.go
+
+vendor/github.com/segmentio/ksuid/**/*.exe
+vendor/github.com/segmentio/ksuid/**/*.test
+vendor/github.com/segmentio/ksuid/**/*.prof
+vendor/github.com/segmentio/ksuid/ksuid
+
+# Emacs
+vendor/github.com/segmentio/ksuid/**/*~
+
+# govendor
+vendor/github.com/segmentio/ksuid/vendor/*
+
+# flyctl launch added from vendor/golang.ngrok.com/ngrok/.gitignore
+vendor/golang.ngrok.com/ngrok/**/.direnv
+vendor/golang.ngrok.com/ngrok/**/*.swp
+vendor/golang.ngrok.com/ngrok/**/cover.out
+
+# flyctl launch added from vendor/golang.org/x/sys/unix/.gitignore
+vendor/golang.org/x/sys/unix/**/_obj
+vendor/golang.org/x/sys/unix/**/unix.test
