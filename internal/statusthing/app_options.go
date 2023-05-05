@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/lusis/apithings/internal/statusthing/handlers"
 	"github.com/lusis/apithings/internal/statusthing/providers"
 	"github.com/lusis/apithings/internal/statusthing/storers"
 
@@ -72,24 +73,13 @@ func WithLogHandler(lh slog.Handler) AppOption {
 	}
 }
 
-// WithUIPath sets a custom path to serve any UI elements
-func WithUIPath(p string) AppOption {
+// WithBasePath sets a custom path to serve from
+func WithBasePath(p string) AppOption {
 	return func(ac *AppConfig) error {
 		if p == "" {
-			return fmt.Errorf("ui path cannot be empty")
+			return fmt.Errorf("path cannot be empty")
 		}
-		ac.uiPath = p
-		return nil
-	}
-}
-
-// WithAPIPath sets a custom path to serve the api
-func WithAPIPath(p string) AppOption {
-	return func(ac *AppConfig) error {
-		if p == "" {
-			return fmt.Errorf("api path cannot be empty")
-		}
-		ac.apiPath = p
+		ac.basePath = p
 		return nil
 	}
 }
@@ -122,8 +112,7 @@ func parseOpts(opts ...AppOption) (*AppConfig, error) {
 		lock:     &sync.RWMutex{},
 		provider: nil,
 		store:    nil,
-		uiPath:   "/statusthing/",
-		apiPath:  "/statusthing/api/",
+		basePath: handlers.DefaultBasePath,
 		logger:   nil,
 		// default to json + info level + source metadata
 		logHandler: nil,
@@ -149,9 +138,11 @@ func parseOpts(opts ...AppOption) (*AppConfig, error) {
 			ac.logHandler = slog.HandlerOptions{Level: slog.LevelInfo, AddSource: true}.NewJSONHandler(os.Stdout)
 		}
 		l := slog.New(ac.logHandler)
-		slog.SetDefault(l)
 		ac.logger = l
 	}
+	// make the logger the default
+	slog.SetDefault(ac.logger)
+
 	if ac.httpServer == nil {
 		ac.httpServer = &http.Server{Addr: ac.listenAddr}
 	}

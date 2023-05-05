@@ -16,7 +16,7 @@ A statusthing item looks like so:
     - `STATUS_YELLOW`: maps to whatever intermediate state between healthy and unhealthy means to you
 
 ## Running
-_note that the debug env var isn't required but the app is silent otherwise except in cases of errors_
+_note that the debug env var isn't required but the app is mostly silent otherwise except in cases of errors_
 
 - `go build -o statusthing ./cmd/statusthing/main.go && STATUSTHING_DEBUG=1 ./statusthing`
 - `STATUSTHING_DEBUG=1 go run ./cmd/statusthing/main.go`
@@ -24,12 +24,11 @@ _note that the debug env var isn't required but the app is silent otherwise exce
 ## Configuration
 Config is done through environment variables with a prefix of `STATUSTHING_`:
 
-- `STATUSTHING_ADDR`: the ip:port string to listen on. defaults to `127.0.0.1:9000`
+- `STATUSTHING_ADDR`: the ip:port string to listen on. defaults to `:9000`
 - `STATUSTHING_DEBUG` regardless of value, if this is set debug logging will activate
-- `STATUSTHING_BASEPATH` the basepath is path for all api requests. the default is `/api/statusthing/` so all requests go to `/api/statusthing/` - note the trailing slash here
+- `STATUSTHING_BASEPATH` the basepath is path for requests. if not specified, the default is `/statusthings` and `/statusthings/api` for dashboard and api respectively
 - `STATUSTHING_DBFILE` the sqlite file to use for data
 - `STATUSTHING_APIKEY` if provided, password protects the api with the provided value and said value must be provided as an http header `X-STATUSTHING-KEY` for any requests
-- `STATUSTHING_ENABLE_DASH` if you want the VERY VERY basic and rudimentary **PUBLIC** read-only "dashboard" (and I use that word so very very loosely), this will expose it at `basepath/ui` so `/api/statusthing/ui` assuming defaults
 
 Additionaly, per the top-level README, setting `NGROK_AUTHTOKEN` will stand up a temporary ngrok endpoint for the app and specifiying `NGROK_ENDPOINT` will use that endpoint to expose it.
 When exposed via ngrok the basepath and apikey settings are all honored as well.
@@ -38,17 +37,15 @@ When exposed via ngrok the basepath and apikey settings are all honored as well.
 
 > Graphic design is my passion - someone on the internet
 
-If enabled, the following is available at `basepath/ui`
+The dashboard is served off the root of the basepath. It is read-only and does not require authentication. Api calls still require an apikey if configured as such
 
 ![basic dashboard with four squares colored to reflect the status - two green, one yellow and one red](dashboard-screenshot.png)
 
-**This dashboard does not allow edits and requires no authentication. API calls are still protected by an api key if enabled**
-
 ## APIs
-All requests must set the `Content-Type` header to `application/json`
+All `PUT`/`POST` requests must set the `Content-Type` header to `application/json`
 
 ### Get all statusthings
-- `GET <basepath>`: returns an array of statusthings:
+- `GET <basepath>/api/`: returns an array of statusthings:
     - sample response body
     ```json
     [
@@ -59,7 +56,7 @@ All requests must set the `Content-Type` header to `application/json`
     ```
 
 ### Get a specific statusthing
-- `GET <basepath>/<id>`
+- `GET <basepath>/api/<id>`
 
     Gets the thing with the provided id
 
@@ -70,7 +67,7 @@ All requests must set the `Content-Type` header to `application/json`
     
 
 ### Add a new statusthing
-- `PUT <basepath>`
+- `PUT <basepath>/api/`
 
     Creates a new thing
 
@@ -86,7 +83,7 @@ All requests must set the `Content-Type` header to `application/json`
     ```
 
 ### Update an existing statusthing
-- `POST <basepath>/<id>`
+- `POST <basepath>/api/<id>`
 
     Updates the thing with having id with the new values. Currently only `status` is supported
 
@@ -98,7 +95,7 @@ All requests must set the `Content-Type` header to `application/json`
     Returns http status code `202` on success
 
 ### Delete a statusthing
-- `DELETE <basepath>/<id>`
+- `DELETE <basepath>/api/<id>`
     
     Deletes the thing having the provided id
 

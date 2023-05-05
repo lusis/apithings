@@ -46,8 +46,8 @@ type config struct {
 
 func configFromEnv() (*config, error) { // nolint: unparam
 	cfg := &config{
-		basepath:          "/statusthing/api/",
-		addr:              "127.0.0.1:9000",
+		basepath:          statusthing.DefaultHTTPBasePath,
+		addr:              ":9000",
 		dbfile:            "statusthing.db",
 		debug:             false,
 		enableNgrok:       false,
@@ -98,7 +98,6 @@ func main() {
 		logger = slog.New(h)
 	}
 
-	logger.Debug("starting up")
 	db, err := sql.Open("sqlite", cfg.dbfile)
 	if err != nil {
 		logger.Error(err.Error())
@@ -114,9 +113,10 @@ func main() {
 		os.Exit(1)
 	}
 	appOptions := []statusthing.AppOption{
-		statusthing.WithLogger(logger),
 		statusthing.WithStorer(store),
-		statusthing.WithAPIPath(cfg.basepath),
+	}
+	if cfg.basepath != "" {
+		appOptions = append(appOptions, statusthing.WithBasePath(cfg.basepath))
 	}
 	if cfg.apikey != "" {
 		appOptions = append(appOptions, statusthing.WithAPIKey(cfg.apikey))
@@ -135,10 +135,12 @@ func main() {
 			logger.Error("unable to create ngrok tunnel", "err", err)
 			return
 		}
-		logger.Debug("ngrok tunnel created", "ngrok.endpoint", ngrokTunnel.URL())
+		logger = logger.With("ngrok.endpoint", ngrokTunnel.URL())
+		logger.Debug("ngrok tunnel created")
 		appOptions = append(appOptions, statusthing.WithNgrok(ngrokTunnel))
 	}
-
+	// since we decorate the logger with metadata we need to add this after all is added
+	appOptions = append(appOptions, statusthing.WithLogger(logger))
 	app, err := statusthing.New(appOptions...)
 	if err != nil {
 		logger.Error(err.Error())
@@ -170,9 +172,10 @@ func main() {
 		}()
 		wg.Wait()
 	}()
-
+	logger.Info("starting application", "addr", cfg.addr, "basepath", cfg.basepath)
 	if err := app.Start(); err != nil && err.Error() != http.ErrServerClosed.Error() {
-		logger.Error(err.Error())
+		logger.Error("error attempting to start application: %s", err.Error())
 		os.Exit(1)
 	}
+	logger.Info("stopped application")
 }

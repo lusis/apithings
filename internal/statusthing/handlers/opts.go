@@ -7,24 +7,13 @@ import (
 // HandlerOption is a functional option type
 type HandlerOption func(*StatusThingHandler) error
 
-// WithUIPath provides a custom path to serve the ui elements
-func WithUIPath(path string) HandlerOption {
+// WithBasePath sets a custom basepath where the handler is mounted
+func WithBasePath(path string) HandlerOption {
 	return func(sth *StatusThingHandler) error {
 		if path == "" {
-			return fmt.Errorf("path cannot be empty")
+			return fmt.Errorf("path must be provided to use this option")
 		}
-		sth.uiPath = path
-		return nil
-	}
-}
-
-// WithAPIPath provides a custom path to serve the api
-func WithAPIPath(path string) HandlerOption {
-	return func(sth *StatusThingHandler) error {
-		if path == "" {
-			return fmt.Errorf("path cannot be empty")
-		}
-		sth.apiPath = path
+		sth.basePath = path
 		return nil
 	}
 }
