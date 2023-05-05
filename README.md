@@ -8,9 +8,34 @@ Right now the only component I've finished is a basic status site "thing". As ot
 
 ### StatusThing
 
-`statusthing` is a very simple status page backend. It doesn't support comments or historical data (yet? maybe soon?). It's intended to be a very simple status page backend.
+`statusthing` is a very simple status page tool. It doesn't support comments or historical data (yet? maybe soon?).
 
 The docs for `statusthing` are [here](https://github.com/lusis/apithings/blob/main/README.md)
+
+#### Primary usecase
+In the past I've needed a simple internal status page. It didn't need to be fancy.
+The api should be simple enough that you can fire off a webhook (or even add it to a service startup script) to update the status of something quickly and easily.
+You could make it a sidecar/component that you could deploy with other apps.
+
+The "dashboard" I've shipped here is tragic for now but seeing as this is generally something I needed internally, you could point your own UI at the api if you wanted.
+
+
+#### StatusThing Quick Start
+
+- Build and run the container
+```
+docker build --rm -f Dockerfile.statusthing -t statusthing .
+docker run -p 9000:9000 --rm -i -t statusthing
+```
+
+- Add a service
+```
+curl -XPUT -H "Content-Type: application/json" -d '{"status":"STATUS_YELLOW", "name":"tryhard","description":"ehhhhhhh"}' http://localhost:9000/statusthings/api/
+curl -XPUT -H "Content-Type: application/json" -d '{"status":"STATUS_GREEN", "name":"loool","description":"✅"}' http://localhost:9000/statusthings/api/
+curl -XPUT -H "Content-Type: application/json" -d '{"status":"STATUS_RED", "name":"uggg","description":"💩"}' http://localhost:9000/statusthings/api/
+```
+
+- Open your browser to http://localhost:9000/statusthings
 
 ## Common behaviour
 There is some configuration/behavior that will be common across all the 'things'

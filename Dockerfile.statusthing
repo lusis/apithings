@@ -1,0 +1,18 @@
+FROM golang:1.20-alpine as builder
+ENV CGO_ENABLED=0
+COPY . /src
+
+WORKDIR /src
+RUN go build -o /tmp/statusthing ./cmd/statusthing
+
+FROM gcr.io/distroless/static-debian11
+
+VOLUME /data
+
+ENV STATUSTHING_DEBUG=1
+
+EXPOSE 9000
+COPY --from=builder /tmp/statusthing /usr/local/bin/
+
+WORKDIR /data
+ENTRYPOINT ["/usr/local/bin/statusthing"]
