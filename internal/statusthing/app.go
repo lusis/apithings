@@ -13,6 +13,11 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+const (
+	// DefaultHTTPBasePath is the default path for the http handler to serve requests
+	DefaultHTTPBasePath = handlers.DefaultBasePath
+)
+
 // App is a application for statusthings
 type App struct {
 	config             *AppConfig
@@ -27,7 +32,14 @@ func New(opts ...AppOption) (*App, error) {
 		return nil, err
 	}
 	// for now we'll use the api path until we get the handler logic updated
-	stHandler, err := handlers.NewStatusThingHandler(cfg.provider, cfg.apiPath, cfg.logger, cfg.apiKey, true)
+	handlerOpts := []handlers.HandlerOption{}
+	if cfg.apiKey != "" {
+		handlerOpts = append(handlerOpts, handlers.WithAPIKey(cfg.apiKey))
+	}
+	if cfg.basePath != "" {
+		handlerOpts = append(handlerOpts, handlers.WithBasePath(cfg.basePath))
+	}
+	stHandler, err := handlers.NewStatusThingHandler(cfg.provider, handlerOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -39,8 +51,7 @@ type AppConfig struct {
 	lock        *sync.RWMutex
 	provider    providers.Provider
 	store       storers.StatusThingStorer
-	uiPath      string
-	apiPath     string
+	basePath    string
 	logger      *slog.Logger
 	logHandler  slog.Handler
 	apiKey      string
@@ -49,13 +60,20 @@ type AppConfig struct {
 	ngrokTunnel ngrok.Tunnel
 }
 
+func appRequestLogger(logger *slog.Logger, next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logger.Debug("handling request", "http.path", r.URL.Path, "http.method", r.Method)
+		next.ServeHTTP(w, r)
+	}
+}
+
 // Start starts the app
 func (a *App) Start() error {
-	http.Handle("/", a.statusThingHandler)
+	http.HandleFunc("/", appRequestLogger(a.config.logger, a.statusThingHandler))
 
 	if a.config.ngrokTunnel != nil {
 		go func() {
-			if err := http.Serve(a.config.ngrokTunnel, a.statusThingHandler); err != nil {
+			if err := http.Serve(a.config.ngrokTunnel, appRequestLogger(a.config.logger, a.statusThingHandler)); err != nil {
 				a.config.logger.Error("unable to start ngrok tunnel", "err", err)
 			}
 		}()

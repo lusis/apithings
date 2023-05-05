@@ -16,37 +16,44 @@ import (
 
 func TestConstructor(t *testing.T) {
 	t.Parallel()
+	basePath := "/"
 	t.Run("test-good", func(t *testing.T) {
-		sh, err := NewStatusThingHandler(&testProvider{}, "/", nil, "", false)
+		sh, err := NewStatusThingHandler(&testProvider{}, WithBasePath(basePath))
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, sh, "should not be nil")
 	})
 
-	t.Run("test-bad", func(t *testing.T) {
-		sh, err := NewStatusThingHandler(&testProvider{}, "", nil, "", false)
+	t.Run("test-bad-basepath", func(t *testing.T) {
+		sh, err := NewStatusThingHandler(&testProvider{}, WithBasePath(""))
 		require.Error(t, err, "should error")
 		require.Nil(t, sh, "should be nil")
 	})
 }
 
 func TestInvalidContentType(t *testing.T) {
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
+	basePath := "/"
+	for _, m := range []string{http.MethodPost, http.MethodPut} {
+		t.Run(m, func(t *testing.T) {
+			r := httptest.NewRequest(m, "/api/", nil)
+			w := httptest.NewRecorder()
 
-	p := &testProvider{}
-	h, err := NewStatusThingHandler(p, "/", nil, "", false)
-	require.NoError(t, err, "should not error")
-	require.NotNil(t, h, "should not be nil")
+			p := &testProvider{}
+			h, err := NewStatusThingHandler(p, WithBasePath(basePath))
+			require.NoError(t, err, "should not error")
+			require.NotNil(t, h, "should not be nil")
 
-	h.ServeHTTP(w, r)
+			h.ServeHTTP(w, r)
 
-	result := w.Result()
-	defer result.Body.Close()
-	body, err := io.ReadAll(result.Body)
-	require.NoError(t, err, "body should be read")
-	require.NotEmpty(t, body, "body should not be empty")
-	require.Equal(t, http.StatusBadRequest, result.StatusCode)
-	require.Equal(t, "invalid content type\n", string(body))
+			result := w.Result()
+			defer result.Body.Close()
+			body, err := io.ReadAll(result.Body)
+			require.NoError(t, err, "body should be read")
+			require.NotEmpty(t, body, "body should not be empty")
+			require.Equal(t, http.StatusBadRequest, result.StatusCode)
+			require.Equal(t, "invalid content type\n", string(body))
+		})
+	}
+
 }
 
 func TestGetAll(t *testing.T) {
@@ -57,7 +64,7 @@ func TestGetAll(t *testing.T) {
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		p := &testProvider{}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
+		h, err := NewStatusThingHandler(p, WithBasePath("/"))
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -68,68 +75,74 @@ func TestGetAll(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, result.StatusCode, "test provider should immediately error")
 	})
 
-	t.Run("empty-results", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodGet, "/", nil)
-		r.Header.Set(contentTypeHeader, applicationJSON)
-		w := httptest.NewRecorder()
-		p := &testProvider{
-			allFunc: func() ([]*types.StatusThing, error) {
-				return []*types.StatusThing{}, nil
-			},
-		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
-		require.NoError(t, err, "should not error")
-		require.NotNil(t, h, "should not be nil")
-
-		h.ServeHTTP(w, r)
-		result := w.Result()
-		defer result.Body.Close()
-		body, err := io.ReadAll(result.Body)
-		require.NoError(t, err, "body should read")
-		require.Equal(t, http.StatusOK, result.StatusCode, "should be okay")
-		require.Equal(t, "[]\n", string(body), "should return empty result set")
-	})
-	t.Run("one-result", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodGet, "/", nil)
-		r.Header.Set(contentTypeHeader, applicationJSON)
-		w := httptest.NewRecorder()
-		p := &testProvider{
-			allFunc: func() ([]*types.StatusThing, error) {
-				return []*types.StatusThing{
-					{
-						ID:          t.Name() + "_id",
-						Name:        t.Name() + "_name",
-						Description: t.Name() + "_desc",
-						Status:      types.StatusGreen,
+	// test with/without trailing slash
+	for tname, tpath := range map[string]string{"without-slash": "/api", "with-slash": "/api/"} {
+		t.Run(tname, func(t *testing.T) {
+			t.Run("empty-results", func(t *testing.T) {
+				r := httptest.NewRequest(http.MethodGet, tpath, nil)
+				r.Header.Set(contentTypeHeader, applicationJSON)
+				w := httptest.NewRecorder()
+				p := &testProvider{
+					allFunc: func() ([]*types.StatusThing, error) {
+						return []*types.StatusThing{}, nil
 					},
-				}, nil
-			},
-		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
-		require.NoError(t, err, "should not error")
-		require.NotNil(t, h, "should not be nil")
+				}
+				h, err := NewStatusThingHandler(p, WithBasePath("/"))
+				require.NoError(t, err, "should not error")
+				require.NotNil(t, h, "should not be nil")
 
-		h.ServeHTTP(w, r)
-		result := w.Result()
-		defer result.Body.Close()
-		body, err := io.ReadAll(result.Body)
-		require.NoError(t, err, "body should read")
-		require.Equal(t, http.StatusOK, result.StatusCode, "should be okay")
-		require.Equal(t, `[{"id":"TestGetAll/one-result_id","name":"TestGetAll/one-result_name","description":"TestGetAll/one-result_desc","status":"STATUS_GREEN"}]`, strings.TrimSuffix(string(body), "\n"), "should return empty result set")
-	})
+				h.ServeHTTP(w, r)
+				result := w.Result()
+				defer result.Body.Close()
+				body, err := io.ReadAll(result.Body)
+				require.NoError(t, err, "body should read")
+				require.Equal(t, http.StatusOK, result.StatusCode, "should be okay")
+				require.Equal(t, "[]\n", string(body), "should return empty result set")
+			})
+			t.Run("one-result", func(t *testing.T) {
+				r := httptest.NewRequest(http.MethodGet, tpath, nil)
+				r.Header.Set(contentTypeHeader, applicationJSON)
+				w := httptest.NewRecorder()
+				p := &testProvider{
+					allFunc: func() ([]*types.StatusThing, error) {
+						return []*types.StatusThing{
+							{
+								ID:          t.Name() + "_id",
+								Name:        t.Name() + "_name",
+								Description: t.Name() + "_desc",
+								Status:      types.StatusGreen,
+							},
+						}, nil
+					},
+				}
+				h, err := NewStatusThingHandler(p, WithBasePath("/"))
+				require.NoError(t, err, "should not error")
+				require.NotNil(t, h, "should not be nil")
+
+				h.ServeHTTP(w, r)
+				result := w.Result()
+				defer result.Body.Close()
+				body, err := io.ReadAll(result.Body)
+				require.NoError(t, err, "body should read")
+				require.Equal(t, http.StatusOK, result.StatusCode, "should be okay")
+				require.Equal(t, fmt.Sprintf(`[{"id":"TestGetAll/%[1]s/one-result_id","name":"TestGetAll/%[1]s/one-result_name","description":"TestGetAll/%[1]s/one-result_desc","status":"STATUS_GREEN"}]`, tname), strings.TrimSuffix(string(body), "\n"), "should return empty result set")
+			})
+		})
+	}
+
 }
 
 func TestGet(t *testing.T) {
 	t.Parallel()
 
 	t.Run("unexpected-error", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodGet, "/foobar", nil)
+		r := httptest.NewRequest(http.MethodGet, "/api/foobar", nil)
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		p := &testProvider{
 			getFunc: func(s string) (*types.StatusThing, error) { return nil, fmt.Errorf("snarf") },
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
+		h, err := NewStatusThingHandler(p, WithBasePath("/"))
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -141,13 +154,13 @@ func TestGet(t *testing.T) {
 	})
 
 	t.Run("not-found", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodGet, "/foobar", nil)
+		r := httptest.NewRequest(http.MethodGet, "/api/foobar", nil)
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		p := &testProvider{
 			getFunc: func(s string) (*types.StatusThing, error) { return nil, types.ErrNotFound },
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
+		h, err := NewStatusThingHandler(p, WithBasePath("/"))
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -161,7 +174,7 @@ func TestGet(t *testing.T) {
 	})
 
 	t.Run("good", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodGet, "/foobar", nil)
+		r := httptest.NewRequest(http.MethodGet, "/api/foobar", nil)
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		p := &testProvider{
@@ -174,7 +187,7 @@ func TestGet(t *testing.T) {
 				}, nil
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
+		h, err := NewStatusThingHandler(p, WithBasePath("/"))
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -192,14 +205,14 @@ func TestDelete(t *testing.T) {
 	t.Parallel()
 
 	t.Run("unexpected-error", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodDelete, "/foobar", nil)
+		r := httptest.NewRequest(http.MethodDelete, "/api/foobar", nil)
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		p := &testProvider{
 			// doesn't matter what we return here
 			getFunc: func(s string) (*types.StatusThing, error) { return nil, fmt.Errorf("snarf") },
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
+		h, err := NewStatusThingHandler(p, WithBasePath("/"))
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -211,13 +224,13 @@ func TestDelete(t *testing.T) {
 	})
 
 	t.Run("not-found", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodDelete, "/foobar", nil)
+		r := httptest.NewRequest(http.MethodDelete, "/api/foobar", nil)
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		p := &testProvider{
 			getFunc: func(s string) (*types.StatusThing, error) { return nil, types.ErrNotFound },
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
+		h, err := NewStatusThingHandler(p, WithBasePath("/"))
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -231,7 +244,7 @@ func TestDelete(t *testing.T) {
 	})
 
 	t.Run("good", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodDelete, "/foobar", nil)
+		r := httptest.NewRequest(http.MethodDelete, "/api/foobar", nil)
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		p := &testProvider{
@@ -245,7 +258,7 @@ func TestDelete(t *testing.T) {
 			},
 			removeFunc: func(s string) error { return nil },
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
+		h, err := NewStatusThingHandler(p, WithBasePath("/"))
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -262,128 +275,134 @@ func TestDelete(t *testing.T) {
 func TestPut(t *testing.T) {
 	t.Parallel()
 
-	t.Run("bad-request-invalid-body", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPut, "/", strings.NewReader("[]"))
-		r.Header.Set(contentTypeHeader, applicationJSON)
-		w := httptest.NewRecorder()
-		addCalled := false
-		p := &testProvider{
-			addFunc: func(p providers.Params) (*types.StatusThing, error) {
-				addCalled = true
-				return nil, fmt.Errorf("should not be called")
-			},
-		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
-		require.NoError(t, err, "should not error")
-		require.NotNil(t, h, "should not be nil")
+	// test with/without trailing slash
+	for tname, tpath := range map[string]string{"without-slash": "/api", "with-slash": "/api/"} {
+		t.Run(tname, func(t *testing.T) {
+			t.Run("bad-request-invalid-body", func(t *testing.T) {
+				r := httptest.NewRequest(http.MethodPut, tpath, strings.NewReader("[]"))
+				r.Header.Set(contentTypeHeader, applicationJSON)
+				w := httptest.NewRecorder()
+				addCalled := false
+				p := &testProvider{
+					addFunc: func(p providers.Params) (*types.StatusThing, error) {
+						addCalled = true
+						return nil, fmt.Errorf("should not be called")
+					},
+				}
+				h, err := NewStatusThingHandler(p, WithBasePath("/"))
+				require.NoError(t, err, "should not error")
+				require.NotNil(t, h, "should not be nil")
 
-		h.ServeHTTP(w, r)
-		result := w.Result()
-		defer result.Body.Close()
+				h.ServeHTTP(w, r)
+				result := w.Result()
+				defer result.Body.Close()
 
-		require.Equal(t, http.StatusBadRequest, result.StatusCode, "test provider should immediately error")
-		require.False(t, addCalled, "add should not be called")
-	})
+				require.Equal(t, http.StatusBadRequest, result.StatusCode, "test provider should immediately error")
+				require.False(t, addCalled, "add should not be called")
+			})
 
-	t.Run("bad-request-required-values", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPut, "/", strings.NewReader("{}"))
-		r.Header.Set(contentTypeHeader, applicationJSON)
-		w := httptest.NewRecorder()
-		addCalled := false
-		p := &testProvider{
-			addFunc: func(p providers.Params) (*types.StatusThing, error) {
-				addCalled = true
-				return nil, types.ErrRequiredValueMissing
-			},
-		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
-		require.NoError(t, err, "should not error")
-		require.NotNil(t, h, "should not be nil")
+			t.Run("bad-request-required-values", func(t *testing.T) {
+				r := httptest.NewRequest(http.MethodPut, tpath, strings.NewReader("{}"))
+				r.Header.Set(contentTypeHeader, applicationJSON)
+				w := httptest.NewRecorder()
+				addCalled := false
+				p := &testProvider{
+					addFunc: func(p providers.Params) (*types.StatusThing, error) {
+						addCalled = true
+						return nil, types.ErrRequiredValueMissing
+					},
+				}
+				h, err := NewStatusThingHandler(p, WithBasePath("/"))
+				require.NoError(t, err, "should not error")
+				require.NotNil(t, h, "should not be nil")
 
-		h.ServeHTTP(w, r)
-		result := w.Result()
-		defer result.Body.Close()
+				h.ServeHTTP(w, r)
+				result := w.Result()
+				defer result.Body.Close()
 
-		require.Equal(t, http.StatusBadRequest, result.StatusCode, "should fail validation error")
-		require.True(t, addCalled, "should have called our add func")
-	})
+				require.Equal(t, http.StatusBadRequest, result.StatusCode, "should fail validation error")
+				require.True(t, addCalled, "should have called our add func")
+			})
 
-	t.Run("already-exists", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
-		r.Header.Set(contentTypeHeader, applicationJSON)
-		w := httptest.NewRecorder()
-		addCalled := false
-		p := &testProvider{
-			addFunc: func(p providers.Params) (*types.StatusThing, error) {
-				addCalled = true
-				return nil, types.ErrAlreadyExists
-			},
-		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
-		require.NoError(t, err, "should not error")
-		require.NotNil(t, h, "should not be nil")
+			t.Run("already-exists", func(t *testing.T) {
+				r := httptest.NewRequest(http.MethodPut, tpath, strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
+				r.Header.Set(contentTypeHeader, applicationJSON)
+				w := httptest.NewRecorder()
+				addCalled := false
+				p := &testProvider{
+					addFunc: func(p providers.Params) (*types.StatusThing, error) {
+						addCalled = true
+						return nil, types.ErrAlreadyExists
+					},
+				}
+				h, err := NewStatusThingHandler(p, WithBasePath("/"))
+				require.NoError(t, err, "should not error")
+				require.NotNil(t, h, "should not be nil")
 
-		h.ServeHTTP(w, r)
-		result := w.Result()
-		defer result.Body.Close()
+				h.ServeHTTP(w, r)
+				result := w.Result()
+				defer result.Body.Close()
 
-		require.Equal(t, http.StatusConflict, result.StatusCode, "should fail with conflict error")
-		require.True(t, addCalled, "should have called our add func")
-	})
+				require.Equal(t, http.StatusConflict, result.StatusCode, "should fail with conflict error")
+				require.True(t, addCalled, "should have called our add func")
+			})
 
-	t.Run("internal-error", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
-		r.Header.Set(contentTypeHeader, applicationJSON)
-		w := httptest.NewRecorder()
-		addCalled := false
-		p := &testProvider{
-			addFunc: func(p providers.Params) (*types.StatusThing, error) {
-				addCalled = true
-				return nil, fmt.Errorf("snarf")
-			},
-		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
-		require.NoError(t, err, "should not error")
-		require.NotNil(t, h, "should not be nil")
+			t.Run("internal-error", func(t *testing.T) {
+				r := httptest.NewRequest(http.MethodPut, tpath, strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
+				r.Header.Set(contentTypeHeader, applicationJSON)
+				w := httptest.NewRecorder()
+				addCalled := false
+				p := &testProvider{
+					addFunc: func(p providers.Params) (*types.StatusThing, error) {
+						addCalled = true
+						return nil, fmt.Errorf("snarf")
+					},
+				}
+				h, err := NewStatusThingHandler(p, WithBasePath("/"))
+				require.NoError(t, err, "should not error")
+				require.NotNil(t, h, "should not be nil")
 
-		h.ServeHTTP(w, r)
-		result := w.Result()
-		defer result.Body.Close()
+				h.ServeHTTP(w, r)
+				result := w.Result()
+				defer result.Body.Close()
 
-		require.Equal(t, http.StatusInternalServerError, result.StatusCode, "should fail with internal error")
-		require.True(t, addCalled, "should have called our add func")
-	})
+				require.Equal(t, http.StatusInternalServerError, result.StatusCode, "should fail with internal error")
+				require.True(t, addCalled, "should have called our add func")
+			})
 
-	t.Run("good", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
-		r.Header.Set(contentTypeHeader, applicationJSON)
-		w := httptest.NewRecorder()
-		addCalled := false
-		p := &testProvider{
-			addFunc: func(p providers.Params) (*types.StatusThing, error) {
-				addCalled = true
-				return &types.StatusThing{ID: t.Name()}, nil
-			},
-		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
-		require.NoError(t, err, "should not error")
-		require.NotNil(t, h, "should not be nil")
+			t.Run("good", func(t *testing.T) {
+				r := httptest.NewRequest(http.MethodPut, tpath, strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
+				r.Header.Set(contentTypeHeader, applicationJSON)
+				w := httptest.NewRecorder()
+				addCalled := false
+				p := &testProvider{
+					addFunc: func(p providers.Params) (*types.StatusThing, error) {
+						addCalled = true
+						return &types.StatusThing{ID: tname}, nil
+					},
+				}
+				h, err := NewStatusThingHandler(p, WithBasePath("/"))
+				require.NoError(t, err, "should not error")
+				require.NotNil(t, h, "should not be nil")
 
-		h.ServeHTTP(w, r)
-		result := w.Result()
-		defer result.Body.Close()
-		body, err := io.ReadAll(result.Body)
-		require.NoError(t, err)
-		stringBody := strings.TrimSuffix(string(body), "\n")
-		require.Equal(t, http.StatusOK, result.StatusCode, "should pass")
-		require.True(t, addCalled, "should have called our add func")
-		require.Equal(t, `{"id":"TestPut/good","name":"","description":"","status":"STATUS_UNKNOWN"}`, stringBody)
-	})
+				h.ServeHTTP(w, r)
+				result := w.Result()
+				defer result.Body.Close()
+				body, err := io.ReadAll(result.Body)
+				require.NoError(t, err)
+				stringBody := strings.TrimSuffix(string(body), "\n")
+				require.Equal(t, http.StatusOK, result.StatusCode, "should pass")
+				require.True(t, addCalled, "should have called our add func")
+				require.Equal(t, fmt.Sprintf(`{"id":"%s","name":"","description":"","status":"STATUS_UNKNOWN"}`, tname), stringBody)
+			})
+		})
+	}
+
 }
 
 func TestPost(t *testing.T) {
 	t.Run("bad-request", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPost, "/abcdefg", strings.NewReader(`[]`))
+		r := httptest.NewRequest(http.MethodPost, "/api/abcdefg", strings.NewReader(`[]`))
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		statusCalled := false
@@ -393,7 +412,7 @@ func TestPost(t *testing.T) {
 				return fmt.Errorf("snarf")
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
+		h, err := NewStatusThingHandler(p, WithBasePath("/"))
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -405,7 +424,7 @@ func TestPost(t *testing.T) {
 		require.False(t, statusCalled, "should have not called our status func")
 	})
 	t.Run("internal-error", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPost, "/abcdefg", strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
+		r := httptest.NewRequest(http.MethodPost, "/api/abcdefg", strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		statusCalled := false
@@ -415,7 +434,7 @@ func TestPost(t *testing.T) {
 				return fmt.Errorf("snarf")
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
+		h, err := NewStatusThingHandler(p, WithBasePath("/"))
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 
@@ -427,7 +446,7 @@ func TestPost(t *testing.T) {
 		require.True(t, statusCalled, "should have called our status func")
 	})
 	t.Run("good", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPost, "/abcdefg", strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
+		r := httptest.NewRequest(http.MethodPost, "/api/abcdefg", strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		statusCalled := false
@@ -437,7 +456,7 @@ func TestPost(t *testing.T) {
 				return nil
 			},
 		}
-		h, err := NewStatusThingHandler(p, "/", nil, "", false)
+		h, err := NewStatusThingHandler(p, WithBasePath("/"))
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")
 

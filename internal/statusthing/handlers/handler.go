@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path"
 	"regexp"
+	"strings"
 	"text/template"
 
 	"github.com/lusis/apithings/internal/statusthing/providers"
@@ -17,16 +18,21 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+const (
+	// DefaultBasePath is the default base path
+	DefaultBasePath = "/statusthings"
+)
+
 // StatusThingHandler is a struct that provides an http access for statusthings
 type StatusThingHandler struct {
 	provider      providers.Provider
 	itemPathRegex *regexp.Regexp
-	allPath       string
-	uiPath        string
-	apiPath       string
-	logger        *slog.Logger
-	apikey        string
-	enableDash    bool
+	// basePath is the path where the handler is mounted
+	basePath   string
+	allPath    string
+	apiPath    string
+	apikey     string
+	enableDash bool
 }
 
 type httpRepresentation struct {
@@ -36,52 +42,80 @@ type httpRepresentation struct {
 	Status      string `json:"status"`
 }
 
-const thingIDRegexPattern = "([^/]+)"
+const thingIDRegexPattern = "/([^/]+)"
+const apiPathFragment = "/api/"
 const applicationJSON = "application/json"
 const contentTypeHeader = "content-type"
 
 // NewStatusThingHandler returns a new statusthing handler
-func NewStatusThingHandler(provider providers.Provider, basePath string, logger *slog.Logger, apikey string, enableDash bool) (*StatusThingHandler, error) {
-	if logger == nil {
-		logger = slog.Default()
+func NewStatusThingHandler(provider providers.Provider, opts ...HandlerOption) (*StatusThingHandler, error) {
+	if provider == nil {
+		return nil, fmt.Errorf("provider cannot be nil")
 	}
-	if basePath == "" {
-		return nil, fmt.Errorf("basepath cannot be missing")
+	sth := &StatusThingHandler{
+		basePath: DefaultBasePath,
+		provider: provider,
 	}
-	pathstring := fmt.Sprintf("^%s%s$", basePath, thingIDRegexPattern)
-	pr := regexp.MustCompile(pathstring)
-	return &StatusThingHandler{provider: provider, itemPathRegex: pr, allPath: basePath, logger: logger, apikey: apikey, enableDash: enableDash}, nil
+
+	for _, opt := range opts {
+		if err := opt(sth); err != nil {
+			return nil, err
+		}
+	}
+	sth.apiPath = path.Join(sth.basePath, apiPathFragment)
+	apiPathstring := fmt.Sprintf("^%s%s$", sth.apiPath, thingIDRegexPattern)
+	pr := regexp.MustCompile(apiPathstring)
+	sth.itemPathRegex = pr
+	return sth, nil
 }
 
 func (h *StatusThingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h.enableDash {
-		if r.URL.Path == path.Join(h.allPath, "ui") {
-			h.ui(r.Context(), w)
-			return
-		}
+	// serve the ui off the basepath. api is off /api/
+	if r.URL.Path == h.basePath {
+		h.ui(r.Context(), w)
+		return
 	}
+
+	// we are now into the api routing. if it's not an api request it's a 404
+	if !strings.HasPrefix(r.URL.Path, h.apiPath) {
+		// if it's not the api path, 404
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	// if the apikey is set and not provided, 403
 	if h.apikey != "" {
 		if r.Header.Get("X-STATUSTHING-KEY") != h.apikey {
-			http.Error(w, "apikey required", http.StatusForbidden)
+			http.Error(w, "permission denied", http.StatusForbidden)
 			return
 		}
 	}
 
-	if r.Header.Get(contentTypeHeader) != applicationJSON {
+	// for post/put we require body be json
+	if r.Header.Get(contentTypeHeader) != applicationJSON && (r.Method == http.MethodPost || r.Method == http.MethodPut) {
 		http.Error(w, "invalid content type", http.StatusBadRequest)
 		return
 	}
 
 	w.Header().Set(contentTypeHeader, applicationJSON)
-	// short circuit if all request
-	if r.URL.Path == h.allPath && r.Method == http.MethodGet {
+	// we can short-circuit here if the path is the apipath
+	isAPIRoot := (r.URL.Path == h.apiPath || r.URL.Path == h.apiPath+"/")
+	if isAPIRoot && r.Method == http.MethodGet {
 		h.getall(r.Context(), w)
 		return
 	}
 
+	// Put requests to the root add new entries
+	if isAPIRoot && r.Method == http.MethodPut {
+		h.put(r.Context(), r.Body, w)
+		return
+	}
+
+	// now we're into matching against the id for operations on those items
 	matched := h.itemPathRegex.FindStringSubmatch(r.URL.Path)
 
 	switch r.Method {
+	// get the item with the provided id
 	case http.MethodGet:
 		if matched == nil {
 			http.Error(w, "not found", http.StatusNotFound)
@@ -89,6 +123,7 @@ func (h *StatusThingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		id := matched[1]
 		h.get(r.Context(), id, w)
+	// update the item with the provided id
 	case http.MethodPost:
 		if matched == nil {
 			http.Error(w, "not found", http.StatusNotFound)
@@ -96,6 +131,7 @@ func (h *StatusThingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		id := matched[1]
 		h.post(r.Context(), id, r.Body, w)
+	// remove the item with the provided id
 	case http.MethodDelete:
 		if matched == nil {
 			http.Error(w, "not found", http.StatusNotFound)
@@ -103,23 +139,22 @@ func (h *StatusThingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		id := matched[1]
 		h.delete(r.Context(), id, w)
-	case http.MethodPut:
-		h.put(r.Context(), r.Body, w)
 	default:
-		http.Error(w, "unsupported method", http.StatusMethodNotAllowed)
+		http.Error(w, "", http.StatusNotFound)
 	}
 }
 
+// ui renders the super basic bootstrap dashboard
 func (h *StatusThingHandler) ui(ctx context.Context, w http.ResponseWriter) {
 	all, err := h.provider.All(ctx)
 	if err != nil {
-		h.logger.Error("error getting all results", "err", err)
+		slog.ErrorCtx(ctx, "error getting all results", "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	t, err := template.New("dash").Parse(tmpl)
 	if err != nil {
-		h.logger.Error("error getting all results", "err", err)
+		slog.ErrorCtx(ctx, "error getting all results", "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -128,16 +163,17 @@ func (h *StatusThingHandler) ui(ctx context.Context, w http.ResponseWriter) {
 		cards = append(cards, makeCard(thing))
 	}
 	if err := t.Execute(w, cards); err != nil {
-		h.logger.Error("error getting all results", "err", err)
+		slog.ErrorCtx(ctx, "error getting all results", "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 }
 
+// getall gets all known things
 func (h *StatusThingHandler) getall(ctx context.Context, w http.ResponseWriter) {
 	all, err := h.provider.All(ctx)
 	if err != nil {
-		h.logger.Error("error getting all results", "err", err)
+		slog.ErrorCtx(ctx, "error getting all results", "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -152,7 +188,7 @@ func (h *StatusThingHandler) getall(ctx context.Context, w http.ResponseWriter) 
 		})
 	}
 	if err := json.NewEncoder(w).Encode(res); err != nil {
-		h.logger.Error("encoding error", "err", err)
+		slog.ErrorCtx(ctx, "encoding error", "err", err)
 		http.Error(w, "encoding error", http.StatusInternalServerError)
 		return
 	}
@@ -166,7 +202,7 @@ func (h *StatusThingHandler) get(ctx context.Context, id string, w http.Response
 		return
 	}
 	if err != nil {
-		h.logger.Error("unexpected error", "err", err)
+		slog.ErrorCtx(ctx, "unexpected error", "err", err)
 		http.Error(w, "unexpected error", http.StatusInternalServerError)
 		return
 	}
@@ -177,17 +213,17 @@ func (h *StatusThingHandler) get(ctx context.Context, id string, w http.Response
 		Description: res.Description,
 		Status:      res.Status.String(),
 	}); err != nil {
-		h.logger.Error("encoding error", "err", err)
+		slog.ErrorCtx(ctx, "encoding error", "err", err)
 		http.Error(w, "encoding error", http.StatusInternalServerError)
 		return
 	}
 }
 
-// Put provides a mechanism for adding a statusthing
+// put provides a mechanism for adding a statusthing
 func (h *StatusThingHandler) put(ctx context.Context, body io.ReadCloser, w http.ResponseWriter) {
 	var entry = httpRepresentation{}
 	if err := json.NewDecoder(body).Decode(&entry); err != nil {
-		h.logger.Error("decoding error", "err", err)
+		slog.ErrorCtx(ctx, "decoding error", "err", err)
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -202,7 +238,7 @@ func (h *StatusThingHandler) put(ctx context.Context, body io.ReadCloser, w http
 		return
 	}
 	if err != nil {
-		h.logger.Error("internal error", "err", err)
+		slog.ErrorCtx(ctx, "internal error", "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -213,28 +249,28 @@ func (h *StatusThingHandler) put(ctx context.Context, body io.ReadCloser, w http
 		Description: res.Description,
 		Status:      res.Status.String(),
 	}); err != nil {
-		h.logger.Error("internal error", "err", err)
+		slog.ErrorCtx(ctx, "internal error", "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 }
 
-// Post provides a mechanism for updating a statusthing
+// post provides a mechanism for updating a statusthing
 func (h *StatusThingHandler) post(ctx context.Context, id string, body io.ReadCloser, w http.ResponseWriter) {
 	var entry = httpRepresentation{}
 	if err := json.NewDecoder(body).Decode(&entry); err != nil {
-		h.logger.Error("decoding error", "err", err)
+		slog.ErrorCtx(ctx, "decoding error", "err", err)
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 	if err := h.provider.SetStatus(ctx, id, types.StatusFromString(entry.Status)); err != nil {
-		h.logger.Error("error setting status", "err", err)
+		slog.ErrorCtx(ctx, "error setting status", "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 }
 
-// Delete provides a mechanism for deleting a statusthing
+// delete provides a mechanism for deleting a statusthing
 func (h *StatusThingHandler) delete(ctx context.Context, id string, w http.ResponseWriter) {
 	existing, err := h.provider.Get(ctx, id)
 	if errors.Is(err, types.ErrNotFound) {
@@ -242,12 +278,12 @@ func (h *StatusThingHandler) delete(ctx context.Context, id string, w http.Respo
 		return
 	}
 	if err != nil {
-		h.logger.Error("error getting existing record", "err", err)
+		slog.ErrorCtx(ctx, "error getting existing record", "err", err)
 		http.Error(w, "unexpected error", http.StatusInternalServerError)
 		return
 	}
 	if err := h.provider.Remove(ctx, id); err != nil {
-		h.logger.Error("error removing entry", "err", err)
+		slog.ErrorCtx(ctx, "error removing entry", "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -258,7 +294,7 @@ func (h *StatusThingHandler) delete(ctx context.Context, id string, w http.Respo
 		Description: existing.Description,
 		Status:      existing.Status.String(),
 	}); err != nil {
-		h.logger.Error("internal error", "err", err)
+		slog.ErrorCtx(ctx, "internal error", "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
