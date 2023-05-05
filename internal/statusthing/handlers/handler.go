@@ -22,6 +22,8 @@ type StatusThingHandler struct {
 	provider      providers.Provider
 	itemPathRegex *regexp.Regexp
 	allPath       string
+	uiPath        string
+	apiPath       string
 	logger        *slog.Logger
 	apikey        string
 	enableDash    bool

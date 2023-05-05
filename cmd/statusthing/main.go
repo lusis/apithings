@@ -11,8 +11,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/lusis/apithings/internal/statusthing/handlers"
-	"github.com/lusis/apithings/internal/statusthing/providers"
+	"github.com/lusis/apithings/internal/statusthing"
 	"github.com/lusis/apithings/internal/statusthing/storers/sqlite3"
 
 	"golang.ngrok.com/ngrok"
@@ -47,7 +46,7 @@ type config struct {
 
 func configFromEnv() (*config, error) { // nolint: unparam
 	cfg := &config{
-		basepath:          "/api/statusthing/",
+		basepath:          "/statusthing/api/",
 		addr:              "127.0.0.1:9000",
 		dbfile:            "statusthing.db",
 		debug:             false,
@@ -86,7 +85,8 @@ func configFromEnv() (*config, error) { // nolint: unparam
 }
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout))
+	h := slog.HandlerOptions{Level: slog.LevelInfo, AddSource: true}.NewJSONHandler(os.Stdout)
+	logger := slog.New(h)
 
 	cfg, err := configFromEnv()
 	if err != nil {
@@ -113,28 +113,16 @@ func main() {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
-	provider, err := providers.NewStatusThingProvider(store)
-	if err != nil {
-		logger.Error(err.Error())
-		os.Exit(1)
+	appOptions := []statusthing.AppOption{
+		statusthing.WithLogger(logger),
+		statusthing.WithStorer(store),
+		statusthing.WithAPIPath(cfg.basepath),
 	}
-
-	handler, err := handlers.NewStatusThingHandler(provider, cfg.basepath, logger, cfg.apikey, cfg.enableDash)
-	if err != nil {
-		logger.Error(err.Error())
-		os.Exit(1)
+	if cfg.apikey != "" {
+		appOptions = append(appOptions, statusthing.WithAPIKey(cfg.apikey))
 	}
-	server := &http.Server{
-		Addr: cfg.addr,
-	}
-	http.Handle(cfg.basepath, handler)
-
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	var ngrokTunnel ngrok.Tunnel
 	if cfg.enableNgrok {
-		logger.Debug("starting ngrok tunnel")
+		logger.Debug("creating ngrok tunnel")
 		opts := []ngrokconfig.HTTPEndpointOption{
 			// listen on ssl
 			ngrokconfig.WithScheme(ngrokconfig.SchemeHTTPS),
@@ -148,30 +136,27 @@ func main() {
 			return
 		}
 		logger.Debug("ngrok tunnel created", "ngrok.endpoint", ngrokTunnel.URL())
-		go func() {
-			if err := http.Serve(ngrokTunnel, handler); err != nil {
-				logger.Error("unable to start ngrok tunnel", "err", err)
-			}
-		}()
+		appOptions = append(appOptions, statusthing.WithNgrok(ngrokTunnel))
 	}
+
+	app, err := statusthing.New(appOptions...)
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
 	go func() {
 		<-sigs
-		ctx := context.TODO()
 		var wg sync.WaitGroup
 		logger.Debug("shutting down")
-		if ngrokTunnel != nil {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				if err := ngrokTunnel.CloseWithContext(ctx); err != nil {
-					slog.Error("unable to stop ngrok tunnel", "err", err)
-				}
-			}()
-		}
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := server.Close(); err != nil {
+			if err := app.Stop(); err != nil {
 				logger.Error("unable to shut down http server", "err", err)
 			}
 		}()
@@ -186,7 +171,7 @@ func main() {
 		wg.Wait()
 	}()
 
-	if err := server.ListenAndServe(); err != nil && err.Error() != http.ErrServerClosed.Error() {
+	if err := app.Start(); err != nil && err.Error() != http.ErrServerClosed.Error() {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
