@@ -127,7 +127,7 @@ All `PUT`/`POST` requests must set the `Content-Type` header to `application/jso
     
 
 ### Add a new statusthing
-- `PUT <basepath>/api/`
+- `POST <basepath>/api/`
 
     Creates a new thing
 
@@ -143,7 +143,7 @@ All `PUT`/`POST` requests must set the `Content-Type` header to `application/jso
     ```
 
 ### Update an existing statusthing
-- `POST <basepath>/api/<id>`
+- `PUT <basepath>/api/<id>`
 
     Updates the thing with having id with the new values. Currently only `status` is supported
 
