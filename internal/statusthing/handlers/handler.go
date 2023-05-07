@@ -106,8 +106,8 @@ func (h *StatusThingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Put requests to the root add new entries
-	if isAPIRoot && r.Method == http.MethodPut {
-		h.put(r.Context(), r.Body, w)
+	if isAPIRoot && r.Method == http.MethodPost {
+		h.post(r.Context(), r.Body, w)
 		return
 	}
 
@@ -124,13 +124,13 @@ func (h *StatusThingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		id := matched[1]
 		h.get(r.Context(), id, w)
 	// update the item with the provided id
-	case http.MethodPost:
+	case http.MethodPut:
 		if matched == nil {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
 		id := matched[1]
-		h.post(r.Context(), id, r.Body, w)
+		h.put(r.Context(), id, r.Body, w)
 	// remove the item with the provided id
 	case http.MethodDelete:
 		if matched == nil {
@@ -219,8 +219,8 @@ func (h *StatusThingHandler) get(ctx context.Context, id string, w http.Response
 	}
 }
 
-// put provides a mechanism for adding a statusthing
-func (h *StatusThingHandler) put(ctx context.Context, body io.ReadCloser, w http.ResponseWriter) {
+// post provides a mechanism for adding a statusthing
+func (h *StatusThingHandler) post(ctx context.Context, body io.ReadCloser, w http.ResponseWriter) {
 	var entry = httpRepresentation{}
 	if err := json.NewDecoder(body).Decode(&entry); err != nil {
 		slog.ErrorCtx(ctx, "decoding error", "err", err)
@@ -255,8 +255,8 @@ func (h *StatusThingHandler) put(ctx context.Context, body io.ReadCloser, w http
 	}
 }
 
-// post provides a mechanism for updating a statusthing
-func (h *StatusThingHandler) post(ctx context.Context, id string, body io.ReadCloser, w http.ResponseWriter) {
+// put provides a mechanism for updating a statusthing
+func (h *StatusThingHandler) put(ctx context.Context, id string, body io.ReadCloser, w http.ResponseWriter) {
 	var entry = httpRepresentation{}
 	if err := json.NewDecoder(body).Decode(&entry); err != nil {
 		slog.ErrorCtx(ctx, "decoding error", "err", err)

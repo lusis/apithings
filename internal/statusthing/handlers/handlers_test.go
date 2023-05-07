@@ -272,14 +272,14 @@ func TestDelete(t *testing.T) {
 	})
 }
 
-func TestPut(t *testing.T) {
+func TestPost(t *testing.T) {
 	t.Parallel()
 
 	// test with/without trailing slash
 	for tname, tpath := range map[string]string{"without-slash": "/api", "with-slash": "/api/"} {
 		t.Run(tname, func(t *testing.T) {
 			t.Run("bad-request-invalid-body", func(t *testing.T) {
-				r := httptest.NewRequest(http.MethodPut, tpath, strings.NewReader("[]"))
+				r := httptest.NewRequest(http.MethodPost, tpath, strings.NewReader("[]"))
 				r.Header.Set(contentTypeHeader, applicationJSON)
 				w := httptest.NewRecorder()
 				addCalled := false
@@ -302,7 +302,7 @@ func TestPut(t *testing.T) {
 			})
 
 			t.Run("bad-request-required-values", func(t *testing.T) {
-				r := httptest.NewRequest(http.MethodPut, tpath, strings.NewReader("{}"))
+				r := httptest.NewRequest(http.MethodPost, tpath, strings.NewReader("{}"))
 				r.Header.Set(contentTypeHeader, applicationJSON)
 				w := httptest.NewRecorder()
 				addCalled := false
@@ -325,7 +325,7 @@ func TestPut(t *testing.T) {
 			})
 
 			t.Run("already-exists", func(t *testing.T) {
-				r := httptest.NewRequest(http.MethodPut, tpath, strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
+				r := httptest.NewRequest(http.MethodPost, tpath, strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
 				r.Header.Set(contentTypeHeader, applicationJSON)
 				w := httptest.NewRecorder()
 				addCalled := false
@@ -348,7 +348,7 @@ func TestPut(t *testing.T) {
 			})
 
 			t.Run("internal-error", func(t *testing.T) {
-				r := httptest.NewRequest(http.MethodPut, tpath, strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
+				r := httptest.NewRequest(http.MethodPost, tpath, strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
 				r.Header.Set(contentTypeHeader, applicationJSON)
 				w := httptest.NewRecorder()
 				addCalled := false
@@ -371,7 +371,7 @@ func TestPut(t *testing.T) {
 			})
 
 			t.Run("good", func(t *testing.T) {
-				r := httptest.NewRequest(http.MethodPut, tpath, strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
+				r := httptest.NewRequest(http.MethodPost, tpath, strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
 				r.Header.Set(contentTypeHeader, applicationJSON)
 				w := httptest.NewRecorder()
 				addCalled := false
@@ -400,9 +400,9 @@ func TestPut(t *testing.T) {
 
 }
 
-func TestPost(t *testing.T) {
+func TestPut(t *testing.T) {
 	t.Run("bad-request", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPost, "/api/abcdefg", strings.NewReader(`[]`))
+		r := httptest.NewRequest(http.MethodPut, "/api/abcdefg", strings.NewReader(`[]`))
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		statusCalled := false
@@ -424,7 +424,7 @@ func TestPost(t *testing.T) {
 		require.False(t, statusCalled, "should have not called our status func")
 	})
 	t.Run("internal-error", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPost, "/api/abcdefg", strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
+		r := httptest.NewRequest(http.MethodPut, "/api/abcdefg", strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		statusCalled := false
@@ -446,7 +446,7 @@ func TestPost(t *testing.T) {
 		require.True(t, statusCalled, "should have called our status func")
 	})
 	t.Run("good", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPost, "/api/abcdefg", strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
+		r := httptest.NewRequest(http.MethodPut, "/api/abcdefg", strings.NewReader(`{"status":"STATUS_GREEN", "name":"test service 6","description":"foo"}`))
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
 		statusCalled := false
