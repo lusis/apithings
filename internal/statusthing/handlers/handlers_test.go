@@ -32,7 +32,7 @@ func TestConstructor(t *testing.T) {
 
 func TestInvalidContentType(t *testing.T) {
 	basePath := "/"
-	for _, m := range []string{http.MethodPost, http.MethodPut} {
+	for _, m := range []string{http.MethodPost, http.MethodPut, http.MethodGet, http.MethodDelete} {
 		t.Run(m, func(t *testing.T) {
 			r := httptest.NewRequest(m, "/api/", nil)
 			w := httptest.NewRecorder()
