@@ -60,10 +60,14 @@ func TestGetAll(t *testing.T) {
 	t.Parallel()
 
 	t.Run("internal-error", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		r := httptest.NewRequest(http.MethodGet, "/api", nil)
 		r.Header.Set(contentTypeHeader, applicationJSON)
 		w := httptest.NewRecorder()
-		p := &testProvider{}
+		p := &testProvider{
+			allFunc: func() ([]*types.StatusThing, error) {
+				return nil, fmt.Errorf("snarf")
+			},
+		}
 		h, err := NewStatusThingHandler(p, WithBasePath("/"))
 		require.NoError(t, err, "should not error")
 		require.NotNil(t, h, "should not be nil")

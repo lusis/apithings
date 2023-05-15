@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <link rel="stylesheet" type="text/css" href="static/bootstrap.min.css" />
+    <script src="static/htmx.min.js"></script>
+    <title>StatusThing</title>
+</head>
+
+<body>
+    <div class="card-deck">
+        <div hx-trigger="load" hx-get="cards">Loading...</div>
+    </div>
+</body>
+
+</html>
