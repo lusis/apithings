@@ -1,10 +1,14 @@
 package handlers
 
 import (
-	"fmt"
 	"html/template"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
 
 	"github.com/lusis/apithings/internal/statusthing/types"
+
+	"golang.org/x/exp/slog"
 )
 
 const (
@@ -12,53 +16,15 @@ const (
 	bgDangerCard  = "bg-danger"
 	bgWarningCard = "bg-warning"
 )
-const cardFmtString = `
-<div class="card text-white %s mb-3" style="max-width: 18rem;">
-        <div class="card-body">
-            <h5 class="card-title">%s</h5>
-            <p class="card-text">%s</p>
-			<p class="card-text"><small class="text-muted">ID: %s</small></p>
-        </div>
-</div>
-`
 
-const tmpl = `
-<!doctype html>
-<html lang="en">
+type card struct {
+	Style string
+	Title string
+	ID    string
+	Desc  string
+}
 
-<head>
-    <!-- Required meta tags -->
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
-    <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
-        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-
-    <title>StatusThing</title>
-</head>
-
-<body>
-	<div class="card-deck">
-	{{range .}}{{ . }}{{end}}
-	</div>
-    <!-- Optional JavaScript -->
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
-        integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
-        crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js"
-        integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
-        crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js"
-        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
-        crossorigin="anonymous"></script>
-</body>
-
-</html>
-`
-
-func makeCard(thing *types.StatusThing) string {
+func makeCard(thing *types.StatusThing) card {
 	bgstring := "bg-primary"
 	switch thing.Status {
 	case types.StatusGreen:
@@ -70,5 +36,40 @@ func makeCard(thing *types.StatusThing) string {
 	}
 	name := template.HTMLEscapeString(thing.Name)
 	desc := template.HTMLEscapeString(thing.Description)
-	return fmt.Sprintf(cardFmtString, bgstring, name, desc, thing.ID)
+	return card{
+		Style: bgstring,
+		Title: name,
+		ID:    thing.ID,
+		Desc:  desc,
+	}
+}
+
+func (h *StatusThingHandler) addUIRoutes(r chi.Router) {
+	r.Get("/cards", func(w http.ResponseWriter, r *http.Request) {
+		all, err := h.provider.All(r.Context())
+		if err != nil {
+			slog.Error("error getting all results", "err", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		cards := []card{}
+		for _, thing := range all {
+			cards = append(cards, makeCard(thing))
+		}
+		tmpl := h.templates["card.htmx"]
+
+		if err := tmpl.Execute(w, cards); err != nil {
+			slog.Error("error executing template", "err", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+	})
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		tmpl := h.templates["index.htmx"]
+		if err := tmpl.Execute(w, nil); err != nil {
+			slog.Error("error executing template", "err", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+	})
 }

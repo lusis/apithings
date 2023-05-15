@@ -102,7 +102,7 @@ The dashboard is served off the root of the basepath. It is read-only and does n
 ![basic dashboard with three squares colored to reflect the status - one green, one yellow and one red](dashboard-screenshot.png)
 
 ## APIs
-All `PUT`/`POST` requests must set the `Content-Type` header to `application/json`
+All api requests must set the `Content-Type` header to `application/json`
 
 ### Get all statusthings
 - `GET <basepath>/api/`: returns an array of statusthings:
