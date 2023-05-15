@@ -12,8 +12,9 @@
 </head>
 
 <body>
-    <div class="card-deck">
-        <div hx-trigger="load" hx-get="cards">Loading...</div>
+    <div class="navbar navbar-dark bg-dark"><a class="navbar-brand" href="#">StatusThing</a></div>
+    <div class="container">
+        <div hx-trigger="load" hx-get="cards" class="row">Loading...</div>
     </div>
 </body>
 

@@ -1,9 +1,11 @@
 {{range .}}
-<div class="card text-white {{ .Style }} mb-3" style="max-width: 18rem;">
-    <div class="card-body">
-        <h5 class="card-title">{{ .Title }}</h5>
-        <p class="card-text">{{ .Desc }}</p>
-        <p class="card-text" id="card-{{ .ID }}"><small class="text-muted">ID: {{ .ID }}</small></p>
+<div class="col">
+    <div class="card text-white {{ .Style }} mb-3" style="max-width: 18rem;">
+        <div class="card-body">
+            <h5 class="card-title">{{ .Title }}</h5>
+            <p class="card-text">{{ .Desc }}</p>
+            <p class="card-text" id="card-{{ .ID }}"><small class="text-muted">ID: {{ .ID }}</small></p>
+        </div>
     </div>
 </div>
 {{end}}
