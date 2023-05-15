@@ -60,8 +60,8 @@ A `gin.Context` implements the `context.Context` interface and `gin` WAS around 
 My point here is about approachability for people new to a codebase - the same concerns are valid for any third-party library you add to your projects.
 
 
-### So why not use `chi`?
-So why didn't I juse use `chi` in this project? That's a bigger answer but it boiled down to challenging my assumptions on a new project. I could have used `chi` and it wouldn't have added much complication or overhead to the project (and I may still) but I didn't NEED to for the time being. 
+### Why did you not use `chi` initially?
+So why didn't I juse use `chi` initially in this project? That's a bigger answer but it boiled down to challenging my assumptions on a new project. I could have used `chi` and it wouldn't have added much complication or overhead to the project but I didn't NEED it at the time. 
 
 As I said above, most http routers for Go implement `http.Handler` which has ONE function: `ServeHTTP(http.ResponseWriter, *http.Request)`.
 Something like `foo.Get("/", myfunc)` deep down perform the following checks:
@@ -106,7 +106,7 @@ which results in the following when `/foo` is called:
 
 So back to challenging assumptions. I took this project as an opportunity to remind myself WHY I use routers like `chi` and `gin` by manually implementing the router functionality. I feel like this makes you a better mentor and teacher (ask me about pointer recievers sometime).
 
-This project will probably migrate to `chi` at some point when the pain of maintaining my own budget router becomes too painful.
+Having said that, maintaining my own router became cumbersome and made the code much less readable so I did end up migrating to `chi` internally.
 
 ### `mysql`/`postgres` support
 Coming soon. Sqlite was the easiest local option and needed for one of the deploy models I'm working on.
