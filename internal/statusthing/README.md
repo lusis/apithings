@@ -1,4 +1,6 @@
 # statusthing
+*I am in the process of cleaning this up and moving it to its own repository*
+
 StatusThing is a super light and basic status site backend with optional simple dashboard
 
 A statusthing item looks like so:
