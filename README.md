@@ -1,12 +1,15 @@
 # apithings
 
-`apithings` is a collection of tooling I always find myself rebuilding when a I need a simple "thing" i.e. I just need a basic status page or webhook relay or link shortener.
+`apithings` is a collection of tooling I always find myself rebuilding when a I need a simple "thing" i.e. I just need a basic status page or webhook relay or link shortener. This repository is the experimentation grounds.
+Some things may move into their own repo.
 
 ## Components
 
 Right now the only component I've finished is a basic status site "thing". As other components get written, they'll start to (hopefully) coalesce in a set of blocks that play well together (i.e. the status thing can trigger the webhook thing)
 
 ### StatusThing
+*Note: StatusThing now has an in-development repository: https://github.com/lusis/statusthing 
+This repository's `statusthing` will likely redirect you to the above repo in the future*
 
 `statusthing` is a very simple status page tool. It doesn't support comments or historical data (yet? maybe soon?).
 
